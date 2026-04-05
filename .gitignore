@@ -1,0 +1,13 @@
+# IDEs
+.idea/
+.vscode/
+
+# OS
+.DS_Store
+
+# Go
+/bin/
+*.test
+*.out
+go.work
+go.work.sum
