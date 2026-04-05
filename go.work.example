@@ -1,6 +1,9 @@
-go 1.23.0
+go 1.24.0
 
 use (
 	.
 	./integration/pgtypeannotation
 )
+
+// If the root go.mod "go" line is older than integration/pgtypeannotation/go.mod, run
+// `go work sync` after copying this file to go.work, or align versions manually.

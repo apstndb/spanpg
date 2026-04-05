@@ -28,7 +28,7 @@ go work sync
 
 ## Requirements
 
-- Go version follows this submodule’s `go.mod` (may differ from the parent `spanpg` module; the GitHub Actions integration job uses `go-version-file: integration/pgtypeannotation/go.mod`).
+- Go version follows this submodule’s `go.mod` (may be **newer** than the parent `spanpg` module — align `go.work` / toolchain accordingly; the GitHub Actions integration job uses `go-version-file: integration/pgtypeannotation/go.mod`).
 - For the full integration test: network access to Spanner API, **or** Docker (default path uses spanemuboost / testcontainers).
 
 ## Real Cloud Spanner

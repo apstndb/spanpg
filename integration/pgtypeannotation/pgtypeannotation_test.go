@@ -253,10 +253,11 @@ func TestPostgreSQL_TypeAnnotation_QueryParam_and_RowType(t *testing.T) {
 	})
 
 	t.Run("PGJsonB_param_and_row_metadata", func(t *testing.T) {
+		wantJSON := map[string]any{"k": float64(1)}
 		stmt := spanner.Statement{
 			SQL: `SELECT $1 AS out_col`,
 			Params: map[string]interface{}{
-				"p1": spanner.PGJsonB{Value: map[string]any{"k": 1.0}, Valid: true},
+				"p1": spanner.PGJsonB{Value: wantJSON, Valid: true},
 			},
 		}
 		iter := client.Single().Query(ctx, stmt)
@@ -265,6 +266,12 @@ func TestPostgreSQL_TypeAnnotation_QueryParam_and_RowType(t *testing.T) {
 		row, err := iter.Next()
 		if err != nil {
 			t.Fatalf("Next: %v", err)
+		}
+		if iter.Metadata == nil {
+			t.Fatal("expected query metadata, got nil")
+		}
+		if iter.Metadata.RowType == nil {
+			t.Fatal("expected ResultSetMetadata.RowType after first Next")
 		}
 		fields := iter.Metadata.RowType.GetFields()
 		if len(fields) != 1 {
@@ -284,6 +291,9 @@ func TestPostgreSQL_TypeAnnotation_QueryParam_and_RowType(t *testing.T) {
 		}
 		if !got.Valid {
 			t.Fatal("expected valid PGJsonB")
+		}
+		if diff := cmp.Diff(wantJSON, got.Value); diff != "" {
+			t.Errorf("PGJsonB.Value (-want +got):\n%s", diff)
 		}
 
 		if _, err := iter.Next(); err != iterator.Done {
