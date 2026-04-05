@@ -1,5 +1,7 @@
 # spanpg
 
+[![Go Reference](https://pkg.go.dev/badge/github.com/apstndb/spanpg.svg)](https://pkg.go.dev/github.com/apstndb/spanpg)
+
 Experimental, optional layer for **PostgreSQL dialect** ergonomics around [Cloud Spanner](https://cloud.google.com/spanner) — built on top of:
 
 - [`github.com/apstndb/spanvalue`](https://github.com/apstndb/spanvalue) — `GenericColumnValue` formatting and constructors
@@ -9,6 +11,7 @@ The module API is **unstable** until declared otherwise.
 
 ## API (experimental)
 
+- **`FormatPostgreSQLType`** — render a `google.spanner.v1.Type` using PostgreSQL-dialect spellings (including `STRUCT<…>` and `json` / `jsonb` by annotation).
 - **`PostgreSQLCatalogTypeName`** — PostgreSQL catalog-style names for annotated scalars (`numeric`, `jsonb`, `oid`).
 - **`StatementParamKey` / `PostgreSQLPlaceholder`** — pair `$n` placeholders with `spanner.Statement.Params` keys (`p1`, `p2`, …), matching the client convention (see [`integration/pgtypeannotation`](./integration/pgtypeannotation/README.md)).
 - **`FormatColumnSimple`** — delegates to [`spanvalue.SimpleFormatConfig`](https://pkg.go.dev/github.com/apstndb/spanvalue#SimpleFormatConfig) for readable column text.
