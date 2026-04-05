@@ -12,12 +12,15 @@ import (
 	"github.com/apstndb/spanpg"
 )
 
-func TestFormatPostgreSQLType(t *testing.T) {
-	t.Parallel()
+func formatPostgreSQLTypeTestCases() []struct {
+	desc string
+	typ  *sppb.Type
+	want string
+} {
 	st := typector.MustNameCodeSlicesToStructType([]string{"a", "b"}, []sppb.TypeCode{
 		sppb.TypeCode_INT64, sppb.TypeCode_STRING,
 	})
-	for _, tt := range []struct {
+	return []struct {
 		desc string
 		typ  *sppb.Type
 		want string
@@ -56,37 +59,17 @@ func TestFormatPostgreSQLType(t *testing.T) {
 		{"nested struct", typector.NameTypeToStructType("inner", typector.MustNameCodeSlicesToStructType(
 			[]string{"x", "y"}, []sppb.TypeCode{sppb.TypeCode_INT64, sppb.TypeCode_STRING})),
 			"STRUCT<inner STRUCT<x bigint, y text>>"},
-	} {
+	}
+}
+
+func TestFormatPostgreSQLType(t *testing.T) {
+	t.Parallel()
+	for _, tt := range formatPostgreSQLTypeTestCases() {
 		t.Run(tt.desc, func(t *testing.T) {
 			t.Parallel()
 			got := spanpg.FormatPostgreSQLType(tt.typ)
 			if got != tt.want {
 				t.Fatalf("FormatPostgreSQLType() = %q, want %q", got, tt.want)
-			}
-		})
-	}
-}
-
-func TestPostgreSQLCatalogTypeName(t *testing.T) {
-	t.Parallel()
-	for _, tt := range []struct {
-		desc string
-		typ  *sppb.Type
-		want string
-		ok   bool
-	}{
-		{"PG numeric", typector.PGNumeric(), "numeric", true},
-		{"PG jsonb", typector.PGJSONB(), "jsonb", true},
-		{"PG oid", typector.PGOID(), "oid", true},
-		{"plain int64", typector.CodeToSimpleType(sppb.TypeCode_INT64), "", false},
-		{"nil", nil, "", false},
-		{"array", typector.ElemTypeToArrayType(typector.PGNumeric()), "", false},
-	} {
-		t.Run(tt.desc, func(t *testing.T) {
-			t.Parallel()
-			got, ok := spanpg.PostgreSQLCatalogTypeName(tt.typ)
-			if ok != tt.ok || got != tt.want {
-				t.Fatalf("PostgreSQLCatalogTypeName() = (%q, %v), want (%q, %v)", got, ok, tt.want, tt.ok)
 			}
 		})
 	}

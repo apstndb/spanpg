@@ -12,7 +12,6 @@ The module API is **unstable** until declared otherwise.
 ## API (experimental)
 
 - **`FormatPostgreSQLType`** — render a `google.spanner.v1.Type` using PostgreSQL-dialect spellings (including `STRUCT<…>` and `json` / `jsonb` by annotation).
-- **`PostgreSQLCatalogTypeName`** — PostgreSQL catalog-style names for annotated scalars (`numeric`, `jsonb`, `oid`).
 - **`StatementParamKey` / `PostgreSQLPlaceholder`** — pair `$n` placeholders with `spanner.Statement.Params` keys (`p1`, `p2`, …), matching the client convention (see [`integration/pgtypeannotation`](./integration/pgtypeannotation/README.md)).
 - **`FormatColumnSimple`** — delegates to [`spanvalue.SimpleFormatConfig`](https://pkg.go.dev/github.com/apstndb/spanvalue#SimpleFormatConfig) for readable column text.
 

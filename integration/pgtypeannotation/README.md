@@ -5,7 +5,7 @@ This **nested Go module** exercises the Cloud Spanner Go client against a **Post
 - Query parameters bound as `spanner.PGNumeric` / `spanner.PGJsonB` (encoded with `TypeAnnotation` on the wire).
 - `RowIterator.Metadata.RowType` after the first `Next()` — column types should carry `PG_NUMERIC` / `PG_JSONB` annotations.
 
-It validates client and server `TypeAnnotation` behavior for PostgreSQL-oriented Spanner usage. Formatting helpers live in [`github.com/apstndb/spanvalue`](https://github.com/apstndb/spanvalue); catalog-style names in [`github.com/apstndb/spanpg`](https://github.com/apstndb/spanpg).
+It validates client and server `TypeAnnotation` behavior for PostgreSQL-oriented Spanner usage. Formatting helpers live in [`github.com/apstndb/spanvalue`](https://github.com/apstndb/spanvalue); PostgreSQL-dialect type strings via [`github.com/apstndb/spanpg`](https://github.com/apstndb/spanpg) [`FormatPostgreSQLType`](https://pkg.go.dev/github.com/apstndb/spanpg#FormatPostgreSQLType).
 
 SQL uses PostgreSQL placeholder syntax (`$1` with params keyed `p1`, …), matching `cloud.google.com/go/spanner` integration tests.
 

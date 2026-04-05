@@ -24,15 +24,16 @@ import (
 // "proto" and "enum"—not as "bytea" or "text"—so wire types are never mislabeled if
 // they appear in metadata or in a future extension.
 //
-// [sppb.TypeCode_STRUCT] is formatted as GoogleSQL STRUCT<…> declaration syntax. When
-// reviewing or updating this behavior, read Working with STRUCT objects from
+// [sppb.TypeCode_STRUCT] does not appear in PostgreSQL-dialect metadata in practice today,
+// but the implementation includes provisional formatting so callers are not left with
+// a gap if STRUCT shows up on the wire later. The current output uses GoogleSQL
+// STRUCT<…> declaration syntax (named fields: STRUCT<name type, …>; unnamed:
+// STRUCT<type, …>), with field types spelled using the PostgreSQL data-type names above.
+// When reviewing or updating this behavior, read Working with STRUCT objects from
 // https://docs.cloud.google.com/spanner/docs/structs (e.g. dkcli get
-// docs.cloud.google.com/spanner/docs/structs) rather than ad-hoc page fetches. That page
-// notes that the STRUCT data type is not supported in the PostgreSQL interface for
-// Spanner, so the returned string is not a PostgreSQL-interface type name—it is the
-// Spanner SQL form (named fields: STRUCT<name type, …>; unnamed: STRUCT<type, …>)
-// with field types spelled using the PostgreSQL data-type names above, not Spanner
-// keywords such as STRING.
+// docs.cloud.google.com/spanner/docs/structs). The formatting for STRUCT may change
+// once PostgreSQL-dialect support or official guidance for representing composite types
+// is defined (this is not a stability guarantee for the STRUCT branch).
 func FormatPostgreSQLType(typ *sppb.Type) string {
 	if typ == nil {
 		return ""
@@ -50,6 +51,7 @@ func formatPostgreSQLTypeImpl(typ *sppb.Type) string {
 		return formatPostgreSQLTypeImpl(elem) + "[]"
 
 	case sppb.TypeCode_STRUCT:
+		// Provisional: PG dialect rarely exposes STRUCT today; see FormatPostgreSQLType godoc.
 		st := typ.GetStructType()
 		if st == nil || len(st.GetFields()) == 0 {
 			return "STRUCT<>"
