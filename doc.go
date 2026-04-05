@@ -9,5 +9,8 @@
 //
 // Stable [cloud.google.com/go/spanner.GenericColumnValue] construction remains in
 // [github.com/apstndb/spanvalue/gcvctor]; [google.spanner.v1.Type] string rendering
-// remains in [github.com/apstndb/spantype].
+// remains in [github.com/apstndb/spantype]. PostgreSQL catalog spellings for
+// [cloud.google.com/go/spanner/apiv1/spannerpb.Type] values are available via
+// [FormatPostgreSQLType] (see https://docs.cloud.google.com/spanner/docs/reference/postgresql/data-types
+// and https://docs.cloud.google.com/spanner/docs/reference/dialect-differences).
 package spanpg

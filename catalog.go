@@ -11,6 +11,8 @@ import sppb "cloud.google.com/go/spanner/apiv1/spannerpb"
 //
 // Display-oriented helpers like this are intentionally not part of [github.com/apstndb/spanvalue];
 // see also [github.com/apstndb/spantype.FormatType] for Spanner-style type strings.
+// For PostgreSQL spellings of every [sppb.TypeCode], including ARRAY and STRUCT, use
+// [FormatPostgreSQLType].
 func PostgreSQLCatalogTypeName(typ *sppb.Type) (name string, ok bool) {
 	if typ == nil {
 		return "", false

@@ -1,7 +1,11 @@
 // Integration tests for PostgreSQL-dialect Spanner: TypeAnnotation on query parameters
 // and ResultSetMetadata.row_type when reading rows.
 //
-// Real instance: set SPANVALUE_PROJECT_ID and SPANVALUE_INSTANCE_ID (Application Default Credentials).
+// Real Cloud Spanner: set SPANPG_PGTYPEANNOTATION_CLOUD=1, then SPANVALUE_PROJECT_ID,
+// SPANVALUE_INSTANCE_ID, and optionally SPANVALUE_DATABASE_ID for an existing database.
+// Without the opt-in, SPANVALUE_* is ignored and the test uses the emulator. Use shell
+// assignment to map from other variables (e.g. SPANVALUE_PROJECT_ID="$SPANNER_PROJECT_ID").
+// Application Default Credentials required.
 //
 // Default (no env): starts the Cloud Spanner emulator via [github.com/apstndb/spanemuboost]
 // (Docker / testcontainers) with POSTGRESQL dialect.
@@ -13,7 +17,9 @@ package pgtypeannotation_test
 import (
 	"context"
 	"fmt"
+	"math/big"
 	"os"
+	"strings"
 	"testing"
 	"time"
 
@@ -28,14 +34,30 @@ import (
 	"google.golang.org/api/iterator"
 	"google.golang.org/api/option"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/grpc/status"
 )
 
 const (
 	emulatorProjectID   = "test-project"
 	emulatorInstanceID  = "test-instance"
 	emulatorInstanceCfg = "emulator-config"
+
+	// envCloudOptIn must be truthy (1, true, yes, on) to connect this package’s tests to
+	// real Cloud Spanner using SPANVALUE_*; otherwise those env vars are ignored.
+	envCloudOptIn = "SPANPG_PGTYPEANNOTATION_CLOUD"
 )
+
+func cloudIntegrationEnabled() bool {
+	v := strings.TrimSpace(strings.ToLower(os.Getenv(envCloudOptIn)))
+	switch v {
+	case "1", "true", "yes", "on":
+		return true
+	default:
+		return false
+	}
+}
 
 func clientOpts() []option.ClientOption {
 	if h := os.Getenv("SPANNER_EMULATOR_HOST"); h != "" {
@@ -55,7 +77,7 @@ func projectID(t *testing.T) string {
 	}
 	p := os.Getenv("SPANVALUE_PROJECT_ID")
 	if p == "" {
-		t.Fatal("SPANVALUE_PROJECT_ID is not set")
+		t.Fatal("set SPANVALUE_PROJECT_ID")
 	}
 	return p
 }
@@ -67,7 +89,7 @@ func instanceID(t *testing.T) string {
 	}
 	inst := os.Getenv("SPANVALUE_INSTANCE_ID")
 	if inst == "" {
-		t.Fatal("SPANVALUE_INSTANCE_ID is not set")
+		t.Fatal("set SPANVALUE_INSTANCE_ID")
 	}
 	return inst
 }
@@ -154,31 +176,15 @@ func TestPostgreSQL_TypeAnnotation_QueryParam_and_RowType(t *testing.T) {
 	var client *spanner.Client
 	cleanup := func() {}
 
-	pid := os.Getenv("SPANVALUE_PROJECT_ID")
-	iid := os.Getenv("SPANVALUE_INSTANCE_ID")
+	var pid, iid, dbExisting string
+	if cloudIntegrationEnabled() {
+		pid = os.Getenv("SPANVALUE_PROJECT_ID")
+		iid = os.Getenv("SPANVALUE_INSTANCE_ID")
+		dbExisting = os.Getenv("SPANVALUE_DATABASE_ID")
+	}
 	emulatorHost := os.Getenv("SPANNER_EMULATOR_HOST")
 
 	switch {
-	case pid != "" && iid != "":
-		dbID := fmt.Sprintf("pgta_%d", time.Now().UnixNano())
-		dbPath, dropDB, err := createPostgreSQLDatabase(ctx, t, dbID)
-		if err != nil {
-			t.Fatalf("CreateDatabase: %v", err)
-		}
-		c, err := spanner.NewClient(ctx, dbPath, clientOpts()...)
-		if err != nil {
-			dropDB()
-			t.Fatalf("NewClient: %v", err)
-		}
-		client = c
-		cleanup = func() {
-			c.Close()
-			dropDB()
-		}
-
-	case pid != "" || iid != "":
-		t.Skip("set both SPANVALUE_PROJECT_ID and SPANVALUE_INSTANCE_ID for real Cloud Spanner, or neither")
-
 	case emulatorHost != "":
 		ensureEmulatorInstance(ctx, t)
 		dbID := fmt.Sprintf("pgta_%d", time.Now().UnixNano())
@@ -196,6 +202,35 @@ func TestPostgreSQL_TypeAnnotation_QueryParam_and_RowType(t *testing.T) {
 			c.Close()
 			dropDB()
 		}
+
+	case cloudIntegrationEnabled() && pid != "" && iid != "" && dbExisting != "":
+		dbPath := fmt.Sprintf("projects/%s/instances/%s/databases/%s", pid, iid, dbExisting)
+		c, err := spanner.NewClient(ctx, dbPath, clientOpts()...)
+		if err != nil {
+			t.Fatalf("NewClient(%s): %v", dbPath, err)
+		}
+		client = c
+		cleanup = func() { c.Close() }
+
+	case cloudIntegrationEnabled() && pid != "" && iid != "":
+		dbID := fmt.Sprintf("pgta_%d", time.Now().UnixNano())
+		dbPath, dropDB, err := createPostgreSQLDatabase(ctx, t, dbID)
+		if err != nil {
+			t.Fatalf("CreateDatabase: %v", err)
+		}
+		c, err := spanner.NewClient(ctx, dbPath, clientOpts()...)
+		if err != nil {
+			dropDB()
+			t.Fatalf("NewClient: %v", err)
+		}
+		client = c
+		cleanup = func() {
+			c.Close()
+			dropDB()
+		}
+
+	case cloudIntegrationEnabled() && (pid != "" || iid != ""):
+		t.Skipf("with %s=1, set both SPANVALUE_PROJECT_ID and SPANVALUE_INSTANCE_ID", envCloudOptIn)
 
 	default:
 		env := spanemuboost.SetupEmulatorWithClients(t,
@@ -300,4 +335,134 @@ func TestPostgreSQL_TypeAnnotation_QueryParam_and_RowType(t *testing.T) {
 			t.Fatalf("expected single row, got err=%v", err)
 		}
 	})
+
+	// GoogleSQL-style JSON ([spanner.NullJSON]) encodes as TypeCode_JSON without PG_JSONB.
+	// PostgreSQL dialect uses jsonb via [spanner.PGJsonB]. This subtest asserts either
+	// rejection (current emulator: Unimplemented / unsupported JSON) or full round-trip
+	// if a backend ever accepts plain JSON parameters.
+	t.Run("NullJSON_param_and_row_metadata", func(t *testing.T) {
+		wantJSON := map[string]any{"k": float64(1)}
+		stmt := spanner.Statement{
+			SQL: `SELECT $1 AS out_col`,
+			Params: map[string]interface{}{
+				"p1": spanner.NullJSON{Value: wantJSON, Valid: true},
+			},
+		}
+		iter := client.Single().Query(ctx, stmt)
+		defer iter.Stop()
+
+		row, err := iter.Next()
+		if err != nil {
+			if plainWireTypeParamRejected(err, "json") {
+				t.Logf("PostgreSQL dialect: plain NullJSON parameter rejected (documented): %v", err)
+				return
+			}
+			t.Fatalf("NullJSON parameter: Next: %v", err)
+		}
+		if iter.Metadata == nil || iter.Metadata.RowType == nil {
+			t.Fatal("expected ResultSetMetadata.RowType after first Next")
+		}
+		fields := iter.Metadata.RowType.GetFields()
+		if len(fields) != 1 {
+			t.Fatalf("fields: got %d want 1", len(fields))
+		}
+		typ := fields[0].GetType()
+		if typ.GetCode() != sppb.TypeCode_JSON {
+			t.Errorf("column type code: got %v want JSON", typ.GetCode())
+		}
+		ann := typ.GetTypeAnnotation()
+		if ann != sppb.TypeAnnotationCode_TYPE_ANNOTATION_CODE_UNSPECIFIED {
+			t.Errorf("column TypeAnnotation: got %v want TYPE_ANNOTATION_CODE_UNSPECIFIED (plain JSON on wire)", ann)
+		}
+
+		var got spanner.NullJSON
+		if err := row.Columns(&got); err != nil {
+			t.Fatalf("Columns into NullJSON: %v", err)
+		}
+		if !got.Valid {
+			t.Fatal("expected valid NullJSON")
+		}
+		if diff := cmp.Diff(wantJSON, got.Value); diff != "" {
+			t.Errorf("NullJSON.Value (-want +got):\n%s", diff)
+		}
+
+		if _, err := iter.Next(); err != iterator.Done {
+			t.Fatalf("expected single row, got err=%v", err)
+		}
+	})
+
+	// GoogleSQL-style NUMERIC ([spanner.NullNumeric]) encodes as TypeCode_NUMERIC without PG_NUMERIC.
+	// PostgreSQL dialect uses numeric via [spanner.PGNumeric]. This subtest mirrors NullJSON:
+	// rejection on the emulator or full round-trip if a backend accepts plain NUMERIC parameters.
+	t.Run("NullNumeric_param_and_row_metadata", func(t *testing.T) {
+		wantRat := big.NewRat(314, 100)
+		stmt := spanner.Statement{
+			SQL: `SELECT $1 AS out_col`,
+			Params: map[string]interface{}{
+				"p1": spanner.NullNumeric{Numeric: *wantRat, Valid: true},
+			},
+		}
+		iter := client.Single().Query(ctx, stmt)
+		defer iter.Stop()
+
+		row, err := iter.Next()
+		if err != nil {
+			if plainWireTypeParamRejected(err, "numeric") {
+				t.Logf("PostgreSQL dialect: plain NullNumeric parameter rejected (documented): %v", err)
+				return
+			}
+			t.Fatalf("NullNumeric parameter: Next: %v", err)
+		}
+		if iter.Metadata == nil || iter.Metadata.RowType == nil {
+			t.Fatal("expected ResultSetMetadata.RowType after first Next")
+		}
+		fields := iter.Metadata.RowType.GetFields()
+		if len(fields) != 1 {
+			t.Fatalf("fields: got %d want 1", len(fields))
+		}
+		typ := fields[0].GetType()
+		if typ.GetCode() != sppb.TypeCode_NUMERIC {
+			t.Errorf("column type code: got %v want NUMERIC", typ.GetCode())
+		}
+		ann := typ.GetTypeAnnotation()
+		if ann != sppb.TypeAnnotationCode_TYPE_ANNOTATION_CODE_UNSPECIFIED {
+			t.Errorf("column TypeAnnotation: got %v want TYPE_ANNOTATION_CODE_UNSPECIFIED (plain NUMERIC on wire)", ann)
+		}
+
+		var got spanner.NullNumeric
+		if err := row.Columns(&got); err != nil {
+			t.Fatalf("Columns into NullNumeric: %v", err)
+		}
+		if !got.Valid {
+			t.Fatal("expected valid NullNumeric")
+		}
+		if got.Numeric.Cmp(wantRat) != 0 {
+			t.Errorf("NullNumeric: got %v want %v", &got.Numeric, wantRat)
+		}
+
+		if _, err := iter.Next(); err != iterator.Done {
+			t.Fatalf("expected single row, got err=%v", err)
+		}
+	})
+}
+
+// plainWireTypeParamRejected reports whether err indicates the backend refused a
+// GoogleSQL parameter without PostgreSQL TypeAnnotation (e.g. NullJSON vs PGJsonB,
+// NullNumeric vs PGNumeric). keyword is matched case-insensitively as a substring of the status message.
+func plainWireTypeParamRejected(err error, keyword string) bool {
+	s, ok := status.FromError(err)
+	if !ok {
+		return false
+	}
+	msg := strings.ToLower(s.Message())
+	kw := strings.ToLower(keyword)
+	if !strings.Contains(msg, kw) {
+		return false
+	}
+	switch s.Code() {
+	case codes.Unimplemented, codes.InvalidArgument, codes.FailedPrecondition:
+		return true
+	default:
+		return false
+	}
 }

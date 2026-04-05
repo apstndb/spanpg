@@ -12,6 +12,61 @@ import (
 	"github.com/apstndb/spanpg"
 )
 
+func TestFormatPostgreSQLType(t *testing.T) {
+	t.Parallel()
+	st := typector.MustNameCodeSlicesToStructType([]string{"a", "b"}, []sppb.TypeCode{
+		sppb.TypeCode_INT64, sppb.TypeCode_STRING,
+	})
+	for _, tt := range []struct {
+		desc string
+		typ  *sppb.Type
+		want string
+	}{
+		{"nil", nil, ""},
+		{"bool", typector.Bool(), "bool"},
+		{"int64", typector.Int64(), "bigint"},
+		{"pg oid", typector.PGOID(), "oid"},
+		{"float32", typector.Float32(), "float4"},
+		{"float64", typector.Float64(), "float8"},
+		{"string", typector.String(), "text"},
+		{"bytes", typector.Bytes(), "bytea"},
+		{"timestamp", typector.Timestamp(), "timestamptz"},
+		{"date", typector.Date(), "date"},
+		{"numeric", typector.Numeric(), "numeric"},
+		{"pg numeric", typector.PGNumeric(), "numeric"},
+		{"json without PG_JSONB", typector.JSON(), "json"},
+		{"json with PG_JSONB", typector.PGJSONB(), "jsonb"},
+		{"interval", typector.Interval(), "interval"},
+		{"uuid", typector.UUID(), "uuid"},
+		{"proto", typector.FQNToProtoType("google.spanner.v1.TypeProto"), "proto"},
+		{"enum", typector.FQNToEnumType("my.Enum"), "enum"},
+		{"unspecified", &sppb.Type{}, "unknown"},
+		{"array bigint", typector.ElemCodeToArrayType(sppb.TypeCode_INT64), "bigint[]"},
+		{"nested array", typector.ElemTypeToArrayType(typector.ElemCodeToArrayType(sppb.TypeCode_STRING)), "text[][]"},
+		{"array jsonb", typector.ElemTypeToArrayType(typector.PGJSONB()), "jsonb[]"},
+		{"array json", typector.ElemTypeToArrayType(typector.JSON()), "json[]"},
+		{"struct named", st, "STRUCT<a bigint, b text>"},
+		{"struct unnamed", typector.StructTypeFieldsToStructType([]*sppb.StructType_Field{
+			typector.CodeToUnnamedStructTypeField(sppb.TypeCode_STRING),
+			typector.CodeToUnnamedStructTypeField(sppb.TypeCode_BOOL),
+		}), "STRUCT<text, bool>"},
+		{"empty struct", typector.StructTypeFieldsToStructType(nil), "STRUCT<>"},
+		{"struct of array", typector.NameTypeToStructType("xs", typector.ElemCodeToArrayType(sppb.TypeCode_INT64)),
+			"STRUCT<xs bigint[]>"},
+		{"nested struct", typector.NameTypeToStructType("inner", typector.MustNameCodeSlicesToStructType(
+			[]string{"x", "y"}, []sppb.TypeCode{sppb.TypeCode_INT64, sppb.TypeCode_STRING})),
+			"STRUCT<inner STRUCT<x bigint, y text>>"},
+	} {
+		t.Run(tt.desc, func(t *testing.T) {
+			t.Parallel()
+			got := spanpg.FormatPostgreSQLType(tt.typ)
+			if got != tt.want {
+				t.Fatalf("FormatPostgreSQLType() = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}
+
 func TestPostgreSQLCatalogTypeName(t *testing.T) {
 	t.Parallel()
 	for _, tt := range []struct {
