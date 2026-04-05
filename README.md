@@ -7,9 +7,15 @@ Experimental, optional layer for **PostgreSQL dialect** ergonomics around [Cloud
 
 The module API is **unstable** until declared otherwise.
 
+## API (experimental)
+
+- **`PostgreSQLCatalogTypeName`** — PostgreSQL catalog-style names for annotated scalars (`numeric`, `jsonb`, `oid`).
+- **`StatementParamKey` / `PostgreSQLPlaceholder`** — pair `$n` placeholders with `spanner.Statement.Params` keys (`p1`, `p2`, …), matching the client convention ([integration notes](https://github.com/apstndb/spanvalue/pull/45)).
+- **`FormatColumnSimple`** — delegates to [`spanvalue.SimpleFormatConfig`](https://pkg.go.dev/github.com/apstndb/spanvalue#SimpleFormatConfig) for readable column text.
+
 ## Status
 
-Scaffold only: `go.mod` pins [`github.com/apstndb/spanvalue`](https://github.com/apstndb/spanvalue) **v0.2.1** (PostgreSQL `TypeAnnotation` value formatting and `gcvctor` helpers) and [`github.com/apstndb/spantype`](https://github.com/apstndb/spantype) **v0.3.11** (`Type` string rendering). Package docs and a place for future code (e.g. display adapters, driver helpers).
+`go.mod` pins [`github.com/apstndb/spanvalue`](https://github.com/apstndb/spanvalue) **v0.2.1** and [`github.com/apstndb/spantype`](https://github.com/apstndb/spantype) **v0.3.11**. The API remains **unstable** until declared otherwise.
 
 ## Development
 
