@@ -10,12 +10,16 @@ The module API is **unstable** until declared otherwise.
 ## API (experimental)
 
 - **`PostgreSQLCatalogTypeName`** — PostgreSQL catalog-style names for annotated scalars (`numeric`, `jsonb`, `oid`).
-- **`StatementParamKey` / `PostgreSQLPlaceholder`** — pair `$n` placeholders with `spanner.Statement.Params` keys (`p1`, `p2`, …), matching the client convention ([integration notes](https://github.com/apstndb/spanvalue/pull/45)).
+- **`StatementParamKey` / `PostgreSQLPlaceholder`** — pair `$n` placeholders with `spanner.Statement.Params` keys (`p1`, `p2`, …), matching the client convention (see [`integration/pgtypeannotation`](./integration/pgtypeannotation/README.md)).
 - **`FormatColumnSimple`** — delegates to [`spanvalue.SimpleFormatConfig`](https://pkg.go.dev/github.com/apstndb/spanvalue#SimpleFormatConfig) for readable column text.
 
 ## Status
 
 `go.mod` pins [`github.com/apstndb/spanvalue`](https://github.com/apstndb/spanvalue) **v0.2.1** and [`github.com/apstndb/spantype`](https://github.com/apstndb/spantype) **v0.3.11**. The API remains **unstable** until declared otherwise.
+
+## Integration tests
+
+The nested module [`integration/pgtypeannotation`](./integration/pgtypeannotation/README.md) runs PostgreSQL-dialect Spanner client probes (emulator or real instance). It is **not** part of root `go test ./...`; use `make test-integration` (see [`Makefile`](./Makefile) and [`.github/workflows/go.yml`](./.github/workflows/go.yml)).
 
 ## Development
 

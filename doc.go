@@ -4,8 +4,8 @@
 //
 // Behavioral notes (query parameters use [cloud.google.com/go/spanner.PGNumeric] /
 // [cloud.google.com/go/spanner.PGJsonB]; row metadata exposes TypeAnnotation on column
-// types) are integration-tested in [github.com/apstndb/spanvalue] — see
-// https://github.com/apstndb/spanvalue/pull/45.
+// types) are covered by the nested module `integration/pgtypeannotation` in this repository
+// (see that directory’s README).
 //
 // Stable [cloud.google.com/go/spanner.GenericColumnValue] construction remains in
 // [github.com/apstndb/spanvalue/gcvctor]; [google.spanner.v1.Type] string rendering
