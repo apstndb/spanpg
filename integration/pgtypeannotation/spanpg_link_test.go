@@ -7,16 +7,13 @@ import (
 	"runtime"
 	"testing"
 
-	sppb "cloud.google.com/go/spanner/apiv1/spannerpb"
-
 	"github.com/apstndb/spanpg"
 )
 
 func TestParentSpanpgModuleLinked(t *testing.T) {
 	t.Parallel()
-	_, ok := spanpg.PostgreSQLCatalogTypeName((*sppb.Type)(nil))
-	if ok {
-		t.Fatal("expected ok false for nil type")
+	if spanpg.FormatPostgreSQLType(nil) != "" {
+		t.Fatal("expected empty string for nil type")
 	}
 }
 
