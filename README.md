@@ -9,7 +9,7 @@ The module API is **unstable** until declared otherwise.
 
 ## Status
 
-Scaffold only: `go.mod` pins [`github.com/apstndb/spantype`](https://github.com/apstndb/spantype) **v0.3.11** (PostgreSQL `TypeAnnotation` formatting). Package docs and a place for future code (e.g. display adapters, driver helpers). [`github.com/apstndb/spanvalue`](https://github.com/apstndb/spanvalue) will be added as a `require` when this module introduces APIs that depend on it.
+Scaffold only: `go.mod` pins [`github.com/apstndb/spanvalue`](https://github.com/apstndb/spanvalue) **v0.2.1** (PostgreSQL `TypeAnnotation` value formatting and `gcvctor` helpers) and [`github.com/apstndb/spantype`](https://github.com/apstndb/spantype) **v0.3.11** (`Type` string rendering). Package docs and a place for future code (e.g. display adapters, driver helpers).
 
 ## Development
 
