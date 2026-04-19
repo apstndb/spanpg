@@ -37,8 +37,12 @@ func TestFormatColumnPostgreSQLLiteral(t *testing.T) {
 
 	pgJSONBGCV, pgJSONBErr := gcvctor.PGJSONBValue(map[string]any{"msg": "foo"})
 	pgJSONBValue := mustGCV(t, pgJSONBGCV, pgJSONBErr)
+	jsonGCV, jsonErr := gcvctor.JSONValue(map[string]any{"msg": "foo"})
+	jsonValue := mustGCV(t, jsonGCV, jsonErr)
 	int64ArrayGCV, int64ArrayErr := gcvctor.ArrayValue(gcvctor.Int64Value(1), gcvctor.Int64Value(2))
 	int64ArrayValue := mustGCV(t, int64ArrayGCV, int64ArrayErr)
+	nullInt64ArrayGCV, nullInt64ArrayErr := gcvctor.ArrayValue(gcvctor.NullFromCode(sppb.TypeCode_INT64), gcvctor.NullFromCode(sppb.TypeCode_INT64))
+	nullInt64ArrayValue := mustGCV(t, nullInt64ArrayGCV, nullInt64ArrayErr)
 
 	tests := []struct {
 		name  string
@@ -51,9 +55,19 @@ func TestFormatColumnPostgreSQLLiteral(t *testing.T) {
 			want:  `'that''s it'`,
 		},
 		{
+			name:  "int64",
+			value: gcvctor.Int64Value(123),
+			want:  `123`,
+		},
+		{
 			name:  "bytes",
 			value: gcvctor.BytesValue([]byte("abc")),
 			want:  `CAST('\x616263' AS bytea)`,
+		},
+		{
+			name:  "date",
+			value: gcvctor.DateValue(civil.Date{Year: 2024, Month: 1, Day: 15}),
+			want:  `CAST('2024-01-15' AS date)`,
 		},
 		{
 			name:  "timestamp",
@@ -64,6 +78,11 @@ func TestFormatColumnPostgreSQLLiteral(t *testing.T) {
 			name:  "numeric",
 			value: gcvctor.NumericValue(big.NewRat(123456, 100)),
 			want:  `CAST('1234.560000000' AS numeric)`,
+		},
+		{
+			name:  "json",
+			value: jsonValue,
+			want:  `CAST('{"msg":"foo"}' AS json)`,
 		},
 		{
 			name:  "pg jsonb",
@@ -92,7 +111,12 @@ func TestFormatColumnPostgreSQLLiteral(t *testing.T) {
 		{
 			name:  "int64 array",
 			value: int64ArrayValue,
-			want:  `ARRAY[1, 2]`,
+			want:  `CAST(ARRAY[1, 2] AS bigint[])`,
+		},
+		{
+			name:  "all null int64 array",
+			value: nullInt64ArrayValue,
+			want:  `CAST(ARRAY[NULL, NULL] AS bigint[])`,
 		},
 	}
 
