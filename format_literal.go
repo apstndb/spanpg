@@ -55,6 +55,8 @@ func unsupportedPostgreSQLType(typ *sppb.Type) bool {
 	switch typ.GetCode() {
 	case sppb.TypeCode_PROTO, sppb.TypeCode_ENUM, sppb.TypeCode_STRUCT:
 		return true
+	case sppb.TypeCode_JSON:
+		return typ.GetTypeAnnotation() != sppb.TypeAnnotationCode_PG_JSONB
 	case sppb.TypeCode_ARRAY:
 		return unsupportedPostgreSQLType(typ.GetArrayElementType())
 	default:

@@ -37,8 +37,6 @@ func TestFormatColumnPostgreSQLLiteral(t *testing.T) {
 
 	pgJSONBGCV, pgJSONBErr := gcvctor.PGJSONBValue(map[string]any{"msg": "foo"})
 	pgJSONBValue := mustGCV(t, pgJSONBGCV, pgJSONBErr)
-	jsonGCV, jsonErr := gcvctor.JSONValue(map[string]any{"msg": "foo"})
-	jsonValue := mustGCV(t, jsonGCV, jsonErr)
 	int64ArrayGCV, int64ArrayErr := gcvctor.ArrayValue(gcvctor.Int64Value(1), gcvctor.Int64Value(2))
 	int64ArrayValue := mustGCV(t, int64ArrayGCV, int64ArrayErr)
 	nullInt64ArrayGCV, nullInt64ArrayErr := gcvctor.ArrayValue(gcvctor.NullFromCode(sppb.TypeCode_INT64), gcvctor.NullFromCode(sppb.TypeCode_INT64))
@@ -53,6 +51,16 @@ func TestFormatColumnPostgreSQLLiteral(t *testing.T) {
 			name:  "string",
 			value: gcvctor.StringValue("that's it"),
 			want:  `'that''s it'`,
+		},
+		{
+			name:  "null string",
+			value: gcvctor.NullFromCode(sppb.TypeCode_STRING),
+			want:  `NULL`,
+		},
+		{
+			name:  "null int64",
+			value: gcvctor.NullFromCode(sppb.TypeCode_INT64),
+			want:  `NULL`,
 		},
 		{
 			name:  "int64",
@@ -78,11 +86,6 @@ func TestFormatColumnPostgreSQLLiteral(t *testing.T) {
 			name:  "numeric",
 			value: gcvctor.NumericValue(big.NewRat(123456, 100)),
 			want:  `CAST('1234.560000000' AS numeric)`,
-		},
-		{
-			name:  "json",
-			value: jsonValue,
-			want:  `CAST('{"msg":"foo"}' AS json)`,
 		},
 		{
 			name:  "pg jsonb",
@@ -185,6 +188,8 @@ func TestFormatColumnPostgreSQLLiteralUnsupportedTypes(t *testing.T) {
 		mustGCV(t, nestedStructGCV, nestedStructErr),
 	)
 	arrayOfStructValue := mustGCV(t, arrayOfStructGCV, arrayOfStructErr)
+	jsonGCV, jsonErr := gcvctor.JSONValue(map[string]any{"msg": "foo"})
+	jsonValue := mustGCV(t, jsonGCV, jsonErr)
 
 	tests := []struct {
 		name  string
@@ -201,6 +206,10 @@ func TestFormatColumnPostgreSQLLiteralUnsupportedTypes(t *testing.T) {
 		{
 			name:  "enum",
 			value: gcvctor.EnumValue("examples.spanner.music.Genre", 1),
+		},
+		{
+			name:  "plain json",
+			value: jsonValue,
 		},
 		{
 			name:  "array of struct",
