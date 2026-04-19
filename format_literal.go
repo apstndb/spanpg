@@ -119,7 +119,7 @@ func formatNullableValuePostgresqlLiteral(value spanvalue.NullableValue) (string
 	case spanner.NullDate:
 		return postgresqlCast(postgresqlStringLiteral(v.Date.String()), "date"), nil
 	case spanner.NullJSON:
-		return postgresqlCast(postgresqlStringLiteral(v.String()), "json"), nil
+		return "", fmt.Errorf("%w: %T", ErrUnsupportedPostgreSQLType, v)
 	case spanner.PGJsonB:
 		b, err := json.Marshal(v.Value)
 		if err != nil {
