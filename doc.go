@@ -1,6 +1,7 @@
 // Package spanpg provides experimental PostgreSQL-dialect helpers around Cloud Spanner:
 // [FormatPostgreSQLType] for type strings, placeholder/param-key pairing for PostgreSQL SQL text,
-// and thin bridges to [github.com/apstndb/spanvalue] formatting.
+// PostgreSQL literal formatting presets built on [github.com/apstndb/spanvalue], and thin
+// bridges to existing spanvalue formatting.
 //
 // Behavioral notes (query parameters use [cloud.google.com/go/spanner.PGNumeric] /
 // [cloud.google.com/go/spanner.PGJsonB]; row metadata exposes TypeAnnotation on column
