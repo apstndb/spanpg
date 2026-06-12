@@ -1,0 +1,53 @@
+# Tool versions and tasks for local development and CI.
+# CI (.github/workflows/go.yml) installs the same tools via jdx/mise-action,
+# so `mise run check` behaves identically in both places.
+# https://mise.jdx.dev/tasks/ / https://mise.jdx.dev/continuous-integration.html
+
+[tools]
+go = "1.25"
+golangci-lint = "2.11.4"
+
+[tasks.build]
+description = "Compile all packages"
+run = "go build ./..."
+
+[tasks.fmt]
+description = "Rewrite sources with gofmt"
+run = "go fmt ./..."
+
+[tasks.fmt-check]
+description = "Fail if any tracked Go file is not gofmt-formatted"
+run = '''
+files="$(git ls-files -z -- '*.go' | xargs -0 sh -c 'if [ "$#" -eq 0 ]; then exit 0; fi; gofmt -l "$@"' sh)"
+if [ -n "$files" ]; then
+  echo "$files"
+  exit 1
+fi
+'''
+
+[tasks.vet]
+description = "Run go vet"
+run = "go vet ./..."
+
+[tasks.test]
+description = "Run root-module tests"
+run = "go test ./..."
+
+[tasks."test-race"]
+description = "Run root-module tests with the race detector"
+run = "go test -race ./..."
+
+# Nested module: PostgreSQL-dialect probes (Docker emulator via spanemuboost,
+# or real Spanner with SPANPG_PGTYPEANNOTATION_CLOUD=1). Not part of `check`.
+[tasks."test-integration"]
+description = "Run PostgreSQL-dialect integration probes (Docker or real Spanner)"
+dir = "integration/pgtypeannotation"
+run = "go test -count=1 ./..."
+
+[tasks.lint]
+description = "Run golangci-lint"
+run = "golangci-lint run"
+
+[tasks.check]
+description = "Full verification: fmt-check, vet, build, test, lint"
+depends = ["fmt-check", "vet", "build", "test", "lint"]

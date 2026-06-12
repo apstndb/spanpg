@@ -1,6 +1,4 @@
-# This workflow will build a golang project
-# For more information see: https://docs.github.com/en/actions/automating-builds-and-tests/building-and-testing-go
-
+# CI runs the same mise tasks as local development (see mise.toml).
 name: Go
 
 on:
@@ -10,38 +8,23 @@ on:
     branches: [ "main" ]
 
 jobs:
-
-  build:
+  check:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
-
-      - name: Set up Go
-        uses: actions/setup-go@v6
+      - uses: jdx/mise-action@v4
         with:
-          go-version-file: go.mod
-          cache: false
+          version: 2026.6.1
+      - run: mise run check
 
-      - name: Clear Go caches
-        run: go clean -cache -testcache
-
-      - name: Test
-        run: go test -v ./...
-
+  # PostgreSQL-dialect probes against the Spanner emulator (Docker via
+  # spanemuboost/testcontainers). Nested module; not part of `mise run check`.
   integration:
     runs-on: ubuntu-latest
     timeout-minutes: 25
     steps:
       - uses: actions/checkout@v6
-
-      - name: Set up Go
-        uses: actions/setup-go@v6
+      - uses: jdx/mise-action@v4
         with:
-          go-version-file: integration/pgtypeannotation/go.mod
-          cache: false
-
-      - name: Clear Go caches
-        run: go clean -cache -testcache
-
-      - name: Integration tests (pgtypeannotation)
-        run: make test-integration
+          version: 2026.6.1
+      - run: mise run test-integration
