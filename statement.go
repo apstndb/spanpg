@@ -36,11 +36,19 @@ func PositionalParams(values []any) (map[string]any, error) {
 // GenericColumnValue. Generic INSERT fragment helpers belong to spanvalue
 // (apstndb/spanvalue#79); this binds the PostgreSQL-specific $n / p-n pairing.
 func InsertStatement(table string, columns []string, values []any) (spanner.Statement, error) {
+	if strings.TrimSpace(table) == "" {
+		return spanner.Statement{}, fmt.Errorf("spanpg: empty table name")
+	}
 	if len(columns) != len(values) {
 		return spanner.Statement{}, fmt.Errorf("spanpg: %d columns but %d values", len(columns), len(values))
 	}
 	if len(columns) == 0 {
 		return spanner.Statement{}, fmt.Errorf("spanpg: empty column list")
+	}
+	for i, col := range columns {
+		if strings.TrimSpace(col) == "" {
+			return spanner.Statement{}, fmt.Errorf("spanpg: empty column name at index %d", i)
+		}
 	}
 
 	quotedCols := make([]string, len(columns))

@@ -32,6 +32,20 @@ func TestPositionalParams(t *testing.T) {
 func TestInsertStatement(t *testing.T) {
 	t.Parallel()
 
+	t.Run("empty table name", func(t *testing.T) {
+		t.Parallel()
+		if _, err := spanpg.InsertStatement("  ", []string{"id"}, []any{int64(1)}); err == nil {
+			t.Error("want error for empty table name, got nil")
+		}
+	})
+
+	t.Run("empty column name", func(t *testing.T) {
+		t.Parallel()
+		if _, err := spanpg.InsertStatement("t", []string{"id", " "}, []any{int64(1), "x"}); err == nil {
+			t.Error("want error for empty column name, got nil")
+		}
+	})
+
 	t.Run("quotes identifiers and pairs placeholders with params", func(t *testing.T) {
 		t.Parallel()
 		stmt, err := spanpg.InsertStatement(`my"table`, []string{"id", `na"me`}, []any{int64(1), "x"})
