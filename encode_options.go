@@ -37,11 +37,14 @@ import (
 //
 // PGNumericValue formats the wire string with the client's canonical
 // [cloud.google.com/go/spanner.NumericString] (9 fractional digits, silently
-// rounding) even though PG numeric accepts a wider value space. Because these
-// registrations override the client mirror,
+// rounding) even though PG numeric accepts a wider value space — matching
+// the client mirror's NUMERIC scale. Because these registrations override
+// the client mirror,
 // [github.com/apstndb/spancodec.WithLossOfPrecisionHandling] does not apply
-// to them; pass values needing more fractional digits (or NaN) as
-// [cloud.google.com/go/spanner.PGNumeric] wire strings instead.
+// to them. For exact wider-scale values use
+// [github.com/apstndb/spanvalue/gcvctor.PGNumericValueExact] (spanvalue
+// v0.8.1+) or pass [cloud.google.com/go/spanner.PGNumeric] wire strings
+// (also the NaN path) directly.
 //   - [cloud.google.com/go/spanner.NullJSON] →
 //     [github.com/apstndb/spanvalue/gcvctor.PGJSONBValue] of Value when
 //     Valid, typed NULL PG_JSONB otherwise. Like the client, Value is always
@@ -57,14 +60,12 @@ import (
 // handling for its exact dynamic type only. Named types (e.g. type MyRat
 // big.Rat) and other NUMERIC-capable inputs such as string-based wire values
 // are untouched. Per spancodec's contract a registration for T also applies
-// per element of []T, and the paired WithGoType supplies the ARRAY element
-// type for nil and empty slices, so []big.Rat, []*big.Rat,
+// per element of []T, and the registered Spanner type supplies the ARRAY
+// element type for nil and empty slices, so []big.Rat, []*big.Rat,
 // []spanner.NullNumeric, and []spanner.NullJSON encode as arrays of
-// PG-annotated elements. The slice types themselves are additionally
-// registered with WithGoType: static inference resolves an exact Go type
-// (the client supports []big.Rat etc. natively) before falling back to a
-// registered element type, so without the slice registrations TypeFor[[]T]
-// would report un-annotated ARRAY element types.
+// PG-annotated elements. Since spancodec v0.1.2 static inference also
+// resolves []T from the element registration (apstndb/spancodec#1), so no
+// separate slice-type registrations are needed.
 //
 // Decoding needs no counterpart: the client (and therefore
 // [github.com/apstndb/spancodec.Decode] /
@@ -76,40 +77,27 @@ import (
 // represent (the client fails with "unexpected string value"); use
 // [cloud.google.com/go/spanner.PGNumeric] when NaN is possible.
 func EncodeOptions() []spancodec.EncodeOption {
-	pgNumericArray := typector.ElemTypeToArrayType(typector.PGNumeric())
-	pgJSONBArray := typector.ElemTypeToArrayType(typector.PGJSONB())
 	return []spancodec.EncodeOption{
-		spancodec.WithValueEncoder(func(v big.Rat) (spanner.GenericColumnValue, error) {
+		spancodec.WithTypedValueEncoder(typector.PGNumeric(), func(v big.Rat) (spanner.GenericColumnValue, error) {
 			return gcvctor.PGNumericValue(&v), nil
 		}),
-		spancodec.WithGoType[big.Rat](typector.PGNumeric()),
-		spancodec.WithGoType[[]big.Rat](pgNumericArray),
-
-		spancodec.WithValueEncoder(func(v *big.Rat) (spanner.GenericColumnValue, error) {
+		spancodec.WithTypedValueEncoder(typector.PGNumeric(), func(v *big.Rat) (spanner.GenericColumnValue, error) {
 			if v == nil {
 				return gcvctor.NullOf(typector.PGNumeric()), nil
 			}
 			return gcvctor.PGNumericValue(v), nil
 		}),
-		spancodec.WithGoType[*big.Rat](typector.PGNumeric()),
-		spancodec.WithGoType[[]*big.Rat](pgNumericArray),
-
-		spancodec.WithValueEncoder(func(v spanner.NullNumeric) (spanner.GenericColumnValue, error) {
+		spancodec.WithTypedValueEncoder(typector.PGNumeric(), func(v spanner.NullNumeric) (spanner.GenericColumnValue, error) {
 			if !v.Valid {
 				return gcvctor.NullOf(typector.PGNumeric()), nil
 			}
 			return gcvctor.PGNumericValue(&v.Numeric), nil
 		}),
-		spancodec.WithGoType[spanner.NullNumeric](typector.PGNumeric()),
-		spancodec.WithGoType[[]spanner.NullNumeric](pgNumericArray),
-
-		spancodec.WithValueEncoder(func(v spanner.NullJSON) (spanner.GenericColumnValue, error) {
+		spancodec.WithTypedValueEncoder(typector.PGJSONB(), func(v spanner.NullJSON) (spanner.GenericColumnValue, error) {
 			if !v.Valid {
 				return gcvctor.NullOf(typector.PGJSONB()), nil
 			}
 			return gcvctor.PGJSONBValue(v.Value)
 		}),
-		spancodec.WithGoType[spanner.NullJSON](typector.PGJSONB()),
-		spancodec.WithGoType[[]spanner.NullJSON](pgJSONBArray),
 	}
 }
