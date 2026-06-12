@@ -44,28 +44,32 @@ var ErrUnsupportedPostgreSQLType = errors.New("unsupported PostgreSQL type")
 // rounds out of range and fails—and jsonb text is normalized (key order, whitespace,
 // unicode escapes).
 func PostgreSQLLiteralFormatConfig() *spanvalue.FormatConfig {
-	return &spanvalue.FormatConfig{
-		NullString: spanvalue.LiteralFormatConfig().NullString,
-		FormatArray: func(typ *sppb.Type, _ bool, elemStrings []string) (string, error) {
+	fc, err := spanvalue.NewFormatConfig(
+		spanvalue.WithNullString(spanvalue.LiteralFormatConfig().NullString),
+		// WithPlugin prepends most-recent-first, so wire-string is registered
+		// before reject to keep the chain order reject -> wire-string.
+		spanvalue.WithPlugin(formatPostgreSQLWireStringLiteral),
+		spanvalue.WithPlugin(rejectUnsupportedPostgreSQLLiteralType),
+		spanvalue.WithArrayFormat(func(typ *sppb.Type, _ bool, elemStrings []string) (string, error) {
 			return fmt.Sprintf("CAST(ARRAY[%s] AS %s)", strings.Join(elemStrings, ", "), FormatPostgreSQLType(typ)), nil
-		},
+		}),
 		// STRUCT values are rejected by rejectUnsupportedPostgreSQLLiteralType before these
-		// callbacks can run; they are still set so the config passes
-		// spanvalue.FormatConfig.Validate and fails loudly if the plugin is ever bypassed.
-		FormatStruct: spanvalue.FormatStruct{
-			FormatStructField: func(_ *spanvalue.FormatConfig, field *sppb.StructType_Field, _ *structpb.Value) (string, error) {
+		// callbacks can run; they are still set because NewFormatConfig requires the
+		// STRUCT handlers, and they fail loudly if the plugin is ever bypassed.
+		spanvalue.WithStructFormat(
+			func(_ spanvalue.Formatter, field *sppb.StructType_Field, _ *structpb.Value) (string, error) {
 				return "", fmt.Errorf("%w: STRUCT field %q", ErrUnsupportedPostgreSQLType, field.GetName())
 			},
-			FormatStructParen: func(typ *sppb.Type, _ bool, _ []string) (string, error) {
+			func(typ *sppb.Type, _ bool, _ []string) (string, error) {
 				return "", fmt.Errorf("%w: %s", ErrUnsupportedPostgreSQLType, typ.String())
 			},
-		},
-		FormatComplexPlugins: []spanvalue.FormatComplexFunc{
-			rejectUnsupportedPostgreSQLLiteralType,
-			formatPostgreSQLWireStringLiteral,
-		},
-		FormatNullable: formatNullableValuePostgresqlLiteral,
+		),
+		spanvalue.WithScalarFormatter(formatNullableValuePostgresqlLiteral),
+	)
+	if err != nil {
+		panic("spanpg: PostgreSQLLiteralFormatConfig: " + err.Error()) // build-time invariants only
 	}
+	return fc
 }
 
 // formatPostgreSQLWireStringLiteral formats scalar INTERVAL and PG_JSONB values by
@@ -81,29 +85,31 @@ func PostgreSQLLiteralFormatConfig() *spanvalue.FormatConfig {
 //     escape for <).
 //
 // The wire string is authoritative for both types, so it is embedded as-is.
-// NULL values fall through to NullString handling.
-func formatPostgreSQLWireStringLiteral(_ spanvalue.Formatter, value spanner.GenericColumnValue, _ bool) (string, error) {
-	if spanvalue.IsNull(value) {
-		return "", spanvalue.ErrFallthrough
-	}
-	switch value.Type.GetCode() {
+// NULL values fall through (spanvalue.PluginSkippingNull) to NullString handling.
+var formatPostgreSQLWireStringLiteral = spanvalue.PluginForType(wireStringLiteralType,
+	spanvalue.PluginSkippingNull(
+		func(_ spanvalue.Formatter, value spanner.GenericColumnValue, _ bool) (string, error) {
+			wire, ok := value.Value.GetKind().(*structpb.Value_StringValue)
+			if !ok {
+				// The type is known; the payload is wrong — spanvalue's malformed-wire
+				// class (apstndb/spanvalue#216), not ErrUnknownType.
+				return "", fmt.Errorf("%w: %s value encoded as %T, want string_value",
+					spanvalue.ErrMalformedWire, FormatPostgreSQLType(value.Type), value.Value.GetKind())
+			}
+			return postgresqlCast(postgresqlStringLiteral(wire.StringValue), FormatPostgreSQLType(value.Type)), nil
+		}))
+
+// wireStringLiteralType reports whether formatPostgreSQLWireStringLiteral handles typ:
+// scalar INTERVAL and PG_JSONB-annotated JSON.
+func wireStringLiteralType(typ *sppb.Type) bool {
+	switch typ.GetCode() {
 	case sppb.TypeCode_INTERVAL:
-		// handled below
+		return true
 	case sppb.TypeCode_JSON:
-		if value.Type.GetTypeAnnotation() != sppb.TypeAnnotationCode_PG_JSONB {
-			return "", spanvalue.ErrFallthrough
-		}
+		return typ.GetTypeAnnotation() == sppb.TypeAnnotationCode_PG_JSONB
 	default:
-		return "", spanvalue.ErrFallthrough
+		return false
 	}
-	wire, ok := value.Value.GetKind().(*structpb.Value_StringValue)
-	if !ok {
-		// The type is known; the payload is wrong — spanvalue's malformed-wire
-		// class (apstndb/spanvalue#216), not ErrUnknownType.
-		return "", fmt.Errorf("%w: %s value encoded as %T, want string_value",
-			spanvalue.ErrMalformedWire, FormatPostgreSQLType(value.Type), value.Value.GetKind())
-	}
-	return postgresqlCast(postgresqlStringLiteral(wire.StringValue), FormatPostgreSQLType(value.Type)), nil
 }
 
 // FormatRowPostgreSQLLiteral formats a row using PostgreSQLLiteralFormatConfig.
@@ -132,12 +138,13 @@ func unsupportedPostgreSQLType(typ *sppb.Type) bool {
 	}
 }
 
-func rejectUnsupportedPostgreSQLLiteralType(_ spanvalue.Formatter, value spanner.GenericColumnValue, _ bool) (string, error) {
-	if !unsupportedPostgreSQLType(value.Type) {
-		return "", spanvalue.ErrFallthrough
-	}
-	return "", fmt.Errorf("%w: %s", ErrUnsupportedPostgreSQLType, value.Type.String())
-}
+// rejectUnsupportedPostgreSQLLiteralType fails with ErrUnsupportedPostgreSQLType for
+// types the PostgreSQL interface does not support (unsupportedPostgreSQLType), NULL
+// values included; everything else falls through to the rest of the chain.
+var rejectUnsupportedPostgreSQLLiteralType = spanvalue.PluginForType(unsupportedPostgreSQLType,
+	func(_ spanvalue.Formatter, value spanner.GenericColumnValue, _ bool) (string, error) {
+		return "", fmt.Errorf("%w: %s", ErrUnsupportedPostgreSQLType, value.Type.String())
+	})
 
 func postgresqlStringLiteral(s string) string {
 	return "'" + strings.ReplaceAll(s, "'", "''") + "'"
@@ -191,8 +198,8 @@ func formatNullableValuePostgresqlLiteral(value spanvalue.NullableValue) (string
 	// PGJsonB and NullInterval are normally handled upstream by
 	// formatPostgreSQLWireStringLiteral (wire string is authoritative; decoded
 	// re-serialization pads interval fractions and corrupts large JSON integers).
-	// These branches remain as fallbacks for callers that reuse this FormatNullable
-	// without the plugin chain.
+	// These branches remain as fallbacks for callers that reuse this scalar
+	// formatter without the earlier plugins in the chain.
 	case spanner.PGJsonB:
 		b, err := json.Marshal(v.Value)
 		if err != nil {

@@ -19,8 +19,9 @@ it), so iterate aggressively, but every formatting/encoding claim must be
   `T[]`). PROTO/ENUM deliberately render as "proto"/"enum" (never mislabel
   wire types); STRUCT rendering is provisional GoogleSQL syntax.
 - `PostgreSQLLiteralFormatConfig` / `FormatRowPostgreSQLLiteral` /
-  `FormatColumnPostgreSQLLiteral` — PG literal SQL via a hand-built
-  spanvalue `FormatConfig` (FormatNullable switch + reject plugin).
+  `FormatColumnPostgreSQLLiteral` — PG literal SQL via a spanvalue
+  `NewFormatConfig` build (scalar-formatter switch + reject and
+  wire-string plugins).
   Rejections (`ErrUnsupportedPostgreSQLType`): PROTO, ENUM, STRUCT, and
   JSON without PG_JSONB annotation, recursively through ARRAY.
 - `StatementParamKey` / `PostgreSQLPlaceholder` — `$n` ↔ `p1..pn` pairing
