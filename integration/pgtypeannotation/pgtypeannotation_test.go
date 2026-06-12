@@ -165,16 +165,20 @@ func createPostgreSQLDatabase(ctx context.Context, t *testing.T, dbID string) (d
 	}, nil
 }
 
-func TestPostgreSQL_TypeAnnotation_QueryParam_and_RowType(t *testing.T) {
-	if testing.Short() {
-		t.Skip("integration test")
-	}
+// pgEnv bundles the per-test PostgreSQL-dialect database resources: a session client,
+// the database path, and a DatabaseAdminClient for DDL (lifecycle owned via t.Cleanup).
+type pgEnv struct {
+	client  *spanner.Client
+	dbPath  string
+	dbAdmin *database.DatabaseAdminClient
+}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 8*time.Minute)
-	defer cancel()
-
-	var client *spanner.Client
-	cleanup := func() {}
+// setupPGEnv provisions a POSTGRESQL-dialect database following the same environment
+// switch as the original TypeAnnotation test (manual emulator via SPANNER_EMULATOR_HOST,
+// real Cloud Spanner via SPANPG_PGTYPEANNOTATION_CLOUD=1 + SPANVALUE_*, or the default
+// spanemuboost Docker emulator) and registers all cleanup via t.Cleanup.
+func setupPGEnv(ctx context.Context, t *testing.T) *pgEnv {
+	t.Helper()
 
 	var pid, iid, dbExisting string
 	if cloudIntegrationEnabled() {
@@ -184,6 +188,23 @@ func TestPostgreSQL_TypeAnnotation_QueryParam_and_RowType(t *testing.T) {
 	}
 	emulatorHost := os.Getenv("SPANNER_EMULATOR_HOST")
 
+	newDBAdmin := func() *database.DatabaseAdminClient {
+		dbAdmin, err := database.NewDatabaseAdminClient(ctx, clientOpts()...)
+		if err != nil {
+			t.Fatalf("NewDatabaseAdminClient: %v", err)
+		}
+		t.Cleanup(func() { _ = dbAdmin.Close() })
+		return dbAdmin
+	}
+	newClient := func(dbPath string) *spanner.Client {
+		c, err := spanner.NewClient(ctx, dbPath, clientOpts()...)
+		if err != nil {
+			t.Fatalf("NewClient(%s): %v", dbPath, err)
+		}
+		t.Cleanup(c.Close)
+		return c
+	}
+
 	switch {
 	case emulatorHost != "":
 		ensureEmulatorInstance(ctx, t)
@@ -192,25 +213,12 @@ func TestPostgreSQL_TypeAnnotation_QueryParam_and_RowType(t *testing.T) {
 		if err != nil {
 			t.Skipf("PostgreSQL dialect database not available on this environment: %v", err)
 		}
-		c, err := spanner.NewClient(ctx, dbPath, clientOpts()...)
-		if err != nil {
-			dropDB()
-			t.Fatalf("NewClient: %v", err)
-		}
-		client = c
-		cleanup = func() {
-			c.Close()
-			dropDB()
-		}
+		t.Cleanup(dropDB)
+		return &pgEnv{client: newClient(dbPath), dbPath: dbPath, dbAdmin: newDBAdmin()}
 
 	case cloudIntegrationEnabled() && pid != "" && iid != "" && dbExisting != "":
 		dbPath := fmt.Sprintf("projects/%s/instances/%s/databases/%s", pid, iid, dbExisting)
-		c, err := spanner.NewClient(ctx, dbPath, clientOpts()...)
-		if err != nil {
-			t.Fatalf("NewClient(%s): %v", dbPath, err)
-		}
-		client = c
-		cleanup = func() { c.Close() }
+		return &pgEnv{client: newClient(dbPath), dbPath: dbPath, dbAdmin: newDBAdmin()}
 
 	case cloudIntegrationEnabled() && pid != "" && iid != "":
 		dbID := fmt.Sprintf("pgta_%d", time.Now().UnixNano())
@@ -218,29 +226,31 @@ func TestPostgreSQL_TypeAnnotation_QueryParam_and_RowType(t *testing.T) {
 		if err != nil {
 			t.Fatalf("CreateDatabase: %v", err)
 		}
-		c, err := spanner.NewClient(ctx, dbPath, clientOpts()...)
-		if err != nil {
-			dropDB()
-			t.Fatalf("NewClient: %v", err)
-		}
-		client = c
-		cleanup = func() {
-			c.Close()
-			dropDB()
-		}
+		t.Cleanup(dropDB)
+		return &pgEnv{client: newClient(dbPath), dbPath: dbPath, dbAdmin: newDBAdmin()}
 
 	case cloudIntegrationEnabled() && (pid != "" || iid != ""):
 		t.Skipf("with %s=1, set both SPANVALUE_PROJECT_ID and SPANVALUE_INSTANCE_ID", envCloudOptIn)
+		return nil // unreachable
 
 	default:
 		env := spanemuboost.SetupEmulatorWithClients(t,
 			spanemuboost.WithDatabaseDialect(adminpb.DatabaseDialect_POSTGRESQL),
 			spanemuboost.WithRandomDatabaseID(),
 		)
-		client = env.Client
+		return &pgEnv{client: env.Client, dbPath: env.DatabasePath(), dbAdmin: env.DatabaseClient}
+	}
+}
+
+func TestPostgreSQL_TypeAnnotation_QueryParam_and_RowType(t *testing.T) {
+	if testing.Short() {
+		t.Skip("integration test")
 	}
 
-	defer cleanup()
+	ctx, cancel := context.WithTimeout(context.Background(), 8*time.Minute)
+	defer cancel()
+
+	client := setupPGEnv(ctx, t).client
 
 	t.Run("PGNumeric_param_and_row_metadata", func(t *testing.T) {
 		// PostgreSQL dialect uses $1, $2, … placeholders; params map keys are still p1, p2, …
