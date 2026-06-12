@@ -2,7 +2,8 @@
 
 Go library (**MIT**, experimental): the **PostgreSQL-dialect adapter layer**
 for Cloud Spanner, on top of [spanvalue](https://github.com/apstndb/spanvalue)
-(formatting), [spancodec](https://github.com/apstndb/spancodec) (Go ↔ GCV),
+(formatting), [spancodec](https://github.com/apstndb/spancodec) (Go ↔ GCV;
+spanpg adapts it via per-call `EncodeOption` injection, never forks it),
 and [spantype](https://github.com/apstndb/spantype). Architecture rule: **the
 cores stay dialect-neutral** — spanvalue's recorded boundary is "PG table
 cells: spanpg, not spanvalue", and spancodec stays a client mirror; ALL
@@ -23,8 +24,19 @@ it), so iterate aggressively, but every formatting/encoding claim must be
   Rejections (`ErrUnsupportedPostgreSQLType`): PROTO, ENUM, STRUCT, and
   JSON without PG_JSONB annotation, recursively through ARRAY.
 - `StatementParamKey` / `PostgreSQLPlaceholder` — `$n` ↔ `p1..pn` pairing
-  (client convention for the PG interface).
-- `FormatColumnSimple` — thin bridge to `spanvalue.SimpleFormatConfig`.
+  (client convention for the PG interface). `PositionalParams` /
+  `InsertStatement` build on them: ordered values (plain Go or GCV) →
+  Statement params / `INSERT INTO … VALUES ($1..$n)` with
+  `spanvalue.QuoteIdentifier` PostgreSQL quoting. No UPDATE/UPSERT builders
+  yet; generic fragment helpers stay in spanvalue (apstndb/spanvalue#79).
+- `EncodeOptions` — spancodec dialect adapter: `big.Rat`/`*big.Rat`/
+  `NullNumeric` → PG_NUMERIC, `NullJSON` → PG_JSONB (encoders + `WithGoType`
+  for static inference, slice types included). REQUIRED, not cosmetic: the PG
+  backend rejects un-annotated NUMERIC/JSON params (probe: Unimplemented
+  "Unsupported GoogleSQL Type: NUMERIC"). `PGNumeric`/`PGJsonB` pass through
+  unregistered. No `DecodeOptions`: client decode checks TypeCode only, so
+  PG_NUMERIC/PG_JSONB columns decode natively (NaN needs `PGNumeric`, not
+  `big.Rat`). All pinned in `integration/pgtypeannotation`.
 
 ## Verification (core discipline)
 
