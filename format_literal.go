@@ -98,8 +98,10 @@ func formatPostgreSQLWireStringLiteral(_ spanvalue.Formatter, value spanner.Gene
 	}
 	wire, ok := value.Value.GetKind().(*structpb.Value_StringValue)
 	if !ok {
+		// The type is known; the payload is wrong — spanvalue's malformed-wire
+		// class (apstndb/spanvalue#216), not ErrUnknownType.
 		return "", fmt.Errorf("%w: %s value encoded as %T, want string_value",
-			spanvalue.ErrUnknownType, FormatPostgreSQLType(value.Type), value.Value.GetKind())
+			spanvalue.ErrMalformedWire, FormatPostgreSQLType(value.Type), value.Value.GetKind())
 	}
 	return postgresqlCast(postgresqlStringLiteral(wire.StringValue), FormatPostgreSQLType(value.Type)), nil
 }
