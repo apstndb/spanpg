@@ -13,11 +13,12 @@ it), so iterate aggressively, but every formatting/encoding claim must be
 
 ## API map
 
-- `FormatPostgreSQLType` — `sppb.Type` → PG spelling (`bool`, `bigint`,
-  `float8`/`float4`, `numeric`, `text`, `bytea`, `timestamptz`, `date`,
-  `jsonb` (only with PG_JSONB annotation), `interval`, `uuid`, `oid`,
-  `T[]`). PROTO/ENUM deliberately render as "proto"/"enum" (never mislabel
-  wire types); STRUCT rendering is provisional GoogleSQL syntax.
+- `FormatPostgreSQLType` — DEPRECATED alias of
+  `spantype.FormatTypePostgreSQL` (spelling table moved upstream in
+  spantype v0.3.12 so type rendering needs no spanpg dependency; remove
+  the alias at the next breaking release). The spellings stay pinned here
+  by the integration probes; spelling-table changes now happen in
+  spantype with a probe cross-check in this repo.
 - `PostgreSQLLiteralFormatConfig` / `FormatRowPostgreSQLLiteral` /
   `FormatColumnPostgreSQLLiteral` — PG literal SQL via a spanvalue
   `NewFormatConfig` build (scalar-formatter switch + reject and

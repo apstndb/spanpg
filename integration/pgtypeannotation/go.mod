@@ -8,7 +8,7 @@ require (
 	github.com/apstndb/spancodec v0.1.2
 	github.com/apstndb/spanemuboost v0.4.3
 	github.com/apstndb/spanpg v0.0.0
-	github.com/apstndb/spantype v0.3.11
+	github.com/apstndb/spantype v0.3.12
 	github.com/apstndb/spanvalue v0.8.1
 	github.com/google/go-cmp v0.7.0
 	github.com/google/uuid v1.6.0
