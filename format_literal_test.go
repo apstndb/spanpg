@@ -32,9 +32,10 @@ func mustRow(t *testing.T, row *spanner.Row, err error) *spanner.Row {
 	return row
 }
 
-// TestPostgreSQLLiteralFormatConfigValidate pins that the hand-built config satisfies
-// spanvalue's Validate (v0.6.0+ facility): all callback fields are populated, including
-// the defensive FormatStruct callbacks that back the STRUCT rejection plugin.
+// TestPostgreSQLLiteralFormatConfigValidate pins that the config satisfies spanvalue's
+// Validate: a non-empty NullString and a non-empty, nil-free plugin chain (the v0.8.0
+// contract). spanvalue.NewFormatConfig already enforces this at build time; the test
+// keeps the invariant pinned from the consumer side.
 func TestPostgreSQLLiteralFormatConfigValidate(t *testing.T) {
 	t.Parallel()
 	if err := spanpg.PostgreSQLLiteralFormatConfig().Validate(); err != nil {
