@@ -32,6 +32,16 @@ func mustRow(t *testing.T, row *spanner.Row, err error) *spanner.Row {
 	return row
 }
 
+// TestPostgreSQLLiteralFormatConfigValidate pins that the hand-built config satisfies
+// spanvalue's Validate (v0.6.0+ facility): all callback fields are populated, including
+// the defensive FormatStruct callbacks that back the STRUCT rejection plugin.
+func TestPostgreSQLLiteralFormatConfigValidate(t *testing.T) {
+	t.Parallel()
+	if err := spanpg.PostgreSQLLiteralFormatConfig().Validate(); err != nil {
+		t.Fatalf("PostgreSQLLiteralFormatConfig().Validate() = %v, want nil", err)
+	}
+}
+
 func TestFormatColumnPostgreSQLLiteral(t *testing.T) {
 	t.Parallel()
 
@@ -100,6 +110,22 @@ func TestFormatColumnPostgreSQLLiteral(t *testing.T) {
 				Nanos:  big.NewInt((3600 + 60 + 1) * 1000 * 1000 * 1000),
 			}),
 			want: `CAST('P1Y1M1DT1H1M1S' AS interval)`,
+		},
+		{
+			// Wire-string passthrough (server-canonical "6.5S" must not be re-padded to
+			// "6.500S" by spanner.Interval.String(); pinned by the integration round-trip
+			// harness).
+			name:  "interval wire fraction preserved",
+			value: gcvctor.StringBasedValueFromCode(sppb.TypeCode_INTERVAL, "P1Y2M3DT4H5M6.5S"),
+			want:  `CAST('P1Y2M3DT4H5M6.5S' AS interval)`,
+		},
+		{
+			// Wire-string passthrough (decoding to float64 and re-marshaling would corrupt
+			// the integer to 12345678901234567000; pinned by the integration round-trip
+			// harness).
+			name:  "pg jsonb large integer preserved",
+			value: gcvctor.StringBasedValueOf(typector.PGJSONB(), `{"n": 12345678901234567890}`),
+			want:  `CAST('{"n": 12345678901234567890}' AS jsonb)`,
 		},
 		{
 			name:  "uuid",
