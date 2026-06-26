@@ -6,7 +6,7 @@ require (
 	cloud.google.com/go v0.123.0
 	cloud.google.com/go/spanner v1.84.1
 	github.com/apstndb/spancodec v0.1.2
-	github.com/apstndb/spanemuboost v0.4.3
+	github.com/apstndb/spanemuboost v0.4.6
 	github.com/apstndb/spanpg v0.0.0
 	github.com/apstndb/spantype v0.3.12
 	github.com/apstndb/spanvalue v0.8.1
@@ -96,7 +96,7 @@ require (
 	golang.org/x/crypto v0.48.0 // indirect
 	golang.org/x/net v0.49.0 // indirect
 	golang.org/x/oauth2 v0.34.0 // indirect
-	golang.org/x/sync v0.19.0 // indirect
+	golang.org/x/sync v0.21.0 // indirect
 	golang.org/x/sys v0.42.0 // indirect
 	golang.org/x/text v0.34.0 // indirect
 	golang.org/x/time v0.12.0 // indirect

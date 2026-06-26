@@ -640,8 +640,8 @@ github.com/apache/arrow/go/v11 v11.0.0/go.mod h1:Eg5OsL5H+e299f7u5ssuXsuHQVEGC4x
 github.com/apache/thrift v0.16.0/go.mod h1:PHK3hniurgQaNMZYaCLEqXKsYK8upmhPbmdP2FXSqgU=
 github.com/apstndb/spancodec v0.1.2 h1:QPRHmn989WV4lyzvYW7hSyzSYu5106hWDiEA1qMVdc0=
 github.com/apstndb/spancodec v0.1.2/go.mod h1:muPblFXUB5gkkvBBEM/2zzuVAOvin/dBtDsKagIcivY=
-github.com/apstndb/spanemuboost v0.4.3 h1:LmoXNXSneb+4lysaSvRZgzFw6jh6xuYyvahP45/lo80=
-github.com/apstndb/spanemuboost v0.4.3/go.mod h1:5qMaU+8vWhS4jcRi9tpUhy7Z2sY3Ljrl7FbCap8nEGo=
+github.com/apstndb/spanemuboost v0.4.6 h1:9f1qQDLNrPQJiswNLtiTaR0U//zToqxjcEGWGkyThm4=
+github.com/apstndb/spanemuboost v0.4.6/go.mod h1:urUe85EvqomWV4vCj2pALluNhIksbu9RAQZufgq1b8E=
 github.com/apstndb/spantype v0.3.12 h1:BBku3svaObxjC8hjnYNOMZvKzCdIgaHDtUWaS2sVjxQ=
 github.com/apstndb/spantype v0.3.12/go.mod h1:9eHowE7LcJ155ukCYUyuNzVAw9Ne0GXPXpHmu+iaMyk=
 github.com/apstndb/spanvalue v0.8.1 h1:9EHScZGDLqksF0krmc9vXGyDHhyf4G0ymTTW6n4/uG8=
@@ -1211,8 +1211,8 @@ golang.org/x/sync v0.0.0-20220722155255-886fb9371eb4/go.mod h1:RxMgew5VJxzue5/jJ
 golang.org/x/sync v0.0.0-20220819030929-7fc1605a5dde/go.mod h1:RxMgew5VJxzue5/jJTE5uejpjVlOe/izrB70Jof72aM=
 golang.org/x/sync v0.0.0-20220929204114-8fcdb60fdcc0/go.mod h1:RxMgew5VJxzue5/jJTE5uejpjVlOe/izrB70Jof72aM=
 golang.org/x/sync v0.1.0/go.mod h1:RxMgew5VJxzue5/jJTE5uejpjVlOe/izrB70Jof72aM=
-golang.org/x/sync v0.19.0 h1:vV+1eWNmZ5geRlYjzm2adRgW2/mcpevXNg50YZtPCE4=
-golang.org/x/sync v0.19.0/go.mod h1:9KTHXmSnoGruLpwFjVSX0lNNA75CykiMECbovNTZqGI=
+golang.org/x/sync v0.21.0 h1:HLII4xRRTtCRkxYp4HNFF0Js/Og6q2i++KXbg0gHCwM=
+golang.org/x/sync v0.21.0/go.mod h1:9xrNwdLfx4jkKbNva9FpL6vEN7evnE43NNNJQ2LF3+0=
 golang.org/x/sys v0.0.0-20180830151530-49385e6e1522/go.mod h1:STP8DvDyc/dI5b8T5hshtkjS+E42TnysNCUPdjciGhY=
 golang.org/x/sys v0.0.0-20190215142949-d0b11bdaac8a/go.mod h1:STP8DvDyc/dI5b8T5hshtkjS+E42TnysNCUPdjciGhY=
 golang.org/x/sys v0.0.0-20190312061237-fead79001313/go.mod h1:h1NjWce9XRLGQEsW7wpKNCjG9DtNlClVuFLEZdDNbEs=
